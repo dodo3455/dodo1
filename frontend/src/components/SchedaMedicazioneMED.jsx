@@ -633,7 +633,7 @@ export const SchedaMedicazioneMED = ({ patientId, ambulatorio, schede, onRefresh
                 accept="image/*"
                 capture="environment"
                 className="hidden"
-                onChange={(e) => handlePhotoUpload(e, isEditMode ? selectedScheda?.id : null, isEditMode ? selectedScheda?.data_compilazione : formData.data_compilazione, isEditMode ? selectedScheda?.codice : null)}
+                onChange={(e) => handlePhotoUpload(e, isEditMode ? selectedScheda?.id : null, isEditMode ? selectedScheda?.data_compilazione : formData.data_compilazione)}
                 disabled={uploadingPhoto}
               />
               <Button asChild variant="outline" size="sm" disabled={uploadingPhoto}>
@@ -648,7 +648,7 @@ export const SchedaMedicazioneMED = ({ patientId, ambulatorio, schede, onRefresh
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => handlePhotoUpload(e, isEditMode ? selectedScheda?.id : null, isEditMode ? selectedScheda?.data_compilazione : formData.data_compilazione, isEditMode ? selectedScheda?.codice : null)}
+                onChange={(e) => handlePhotoUpload(e, isEditMode ? selectedScheda?.id : null, isEditMode ? selectedScheda?.data_compilazione : formData.data_compilazione)}
                 disabled={uploadingPhoto}
               />
               <Button asChild variant="outline" size="sm" disabled={uploadingPhoto}>
@@ -660,17 +660,9 @@ export const SchedaMedicazioneMED = ({ patientId, ambulatorio, schede, onRefresh
             </label>
           </div>
           
-          {/* Show scheda code if available */}
-          {isEditMode && selectedScheda?.codice && (
-            <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-sm">
-              <span className="font-medium text-blue-800">Codice Scheda: </span>
-              <span className="font-mono text-blue-900">{selectedScheda.codice}</span>
-            </div>
-          )}
-          
           {/* Photo info */}
           <p className="text-xs text-muted-foreground">
-            Le foto vengono salvate con il codice identificativo della medicazione.
+            Le foto vengono salvate con la data della medicazione.
           </p>
         </div>
       </div>
