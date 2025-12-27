@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { apiClient } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -24,11 +23,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Separator } from "@/components/ui/separator";
 import { 
-  Plus, FileText, Edit2, Trash2, Save, Printer, Download, 
-  RotateCw, RotateCcw, ZoomIn, ZoomOut, X, Upload, Image as ImageIcon,
+  Plus, FileText, Edit2, Trash2, Printer, Download, 
+  RotateCw, RotateCcw, ZoomIn, ZoomOut, Upload, Image as ImageIcon,
   Maximize2, FileCheck, FileEdit
 } from "lucide-react";
 import { toast } from "sonner";
@@ -82,63 +79,78 @@ const MOTIVAZIONE_OPTIONS = [
   { id: "altro", label: "Altro" },
 ];
 
-// Componente per visualizzare foto con rotazione adattiva
-const PhotoViewer = ({ photo, onDelete, onCrop }) => {
+// Componente per visualizzare foto con rotazione adattiva - MIGLIORATO
+const PhotoViewer = ({ photo, onDelete }) => {
   const [rotation, setRotation] = useState(0);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const containerRef = useRef(null);
-  const [containerSize, setContainerSize] = useState({ width: 150, height: 150 });
-
-  // Calcola le dimensioni ottimali per contenere l'immagine ruotata
-  useEffect(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setContainerSize({ width: rect.width, height: rect.height });
-    }
-  }, [rotation]);
-
-  const handleRotate = (direction) => {
-    setRotation(prev => (prev + (direction === 'cw' ? 90 : -90)) % 360);
-  };
+  const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
 
   const imageSrc = photo.image_data?.startsWith('data:') 
     ? photo.image_data 
     : `data:image/jpeg;base64,${photo.image_data}`;
 
-  // Calcola la scala per adattare l'immagine ruotata al container
+  // Load image dimensions
+  useEffect(() => {
+    const img = new window.Image();
+    img.onload = () => {
+      setImgDimensions({ width: img.width, height: img.height });
+    };
+    img.src = imageSrc;
+  }, [imageSrc]);
+
+  const handleRotate = (direction) => {
+    setRotation(prev => (prev + (direction === 'cw' ? 90 : -90)) % 360);
+  };
+
+  // Calculate scale to fit rotated image in container
   const isRotated90or270 = Math.abs(rotation % 180) === 90;
-  const scaleFactor = isRotated90or270 ? 0.7 : 1;
+  const containerSize = 120; // Fixed container size
+  
+  // Calculate scale factor based on image aspect ratio and rotation
+  let scale = 1;
+  if (imgDimensions.width > 0 && imgDimensions.height > 0) {
+    if (isRotated90or270) {
+      // When rotated 90/270, width becomes height and vice versa
+      const rotatedWidth = imgDimensions.height;
+      const rotatedHeight = imgDimensions.width;
+      scale = Math.min(containerSize / rotatedWidth, containerSize / rotatedHeight);
+    } else {
+      scale = Math.min(containerSize / imgDimensions.width, containerSize / imgDimensions.height);
+    }
+    // Ensure scale doesn't exceed 1 (don't enlarge small images too much)
+    scale = Math.min(scale, 1);
+  }
 
   return (
     <>
-      <div className="relative group border rounded-lg overflow-hidden bg-gray-100">
+      <div className="relative group border rounded-lg overflow-hidden bg-gray-100 hover:shadow-md transition-shadow">
+        {/* Fixed size container */}
         <div 
-          ref={containerRef}
-          className="relative flex items-center justify-center"
+          className="relative flex items-center justify-center bg-gray-50"
           style={{ 
-            width: '100%',
-            height: '150px',
+            width: `${containerSize}px`,
+            height: `${containerSize}px`,
             overflow: 'hidden'
           }}
         >
           <img
             src={imageSrc}
             alt={photo.descrizione || 'Allegato'}
-            className="cursor-pointer transition-transform duration-300"
+            className="cursor-pointer"
             style={{
-              transform: `rotate(${rotation}deg) scale(${scaleFactor})`,
-              maxWidth: isRotated90or270 ? '150px' : '100%',
-              maxHeight: isRotated90or270 ? '100%' : '150px',
-              objectFit: 'contain',
+              transform: `rotate(${rotation}deg) scale(${scale})`,
+              transition: 'transform 0.2s ease',
+              maxWidth: 'none',
+              maxHeight: 'none',
             }}
             onClick={() => setShowFullscreen(true)}
           />
         </div>
 
         {/* Toolbar overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="flex items-center justify-center gap-1">
+        <div className="absolute bottom-0 left-0 right-0 bg-black/80 py-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center justify-center gap-0.5">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -146,7 +158,7 @@ const PhotoViewer = ({ photo, onDelete, onCrop }) => {
               onClick={(e) => { e.stopPropagation(); handleRotate('ccw'); }}
               title="Ruota sinistra"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
+              <RotateCcw className="h-3 w-3" />
             </Button>
             <Button 
               variant="ghost" 
@@ -155,7 +167,7 @@ const PhotoViewer = ({ photo, onDelete, onCrop }) => {
               onClick={(e) => { e.stopPropagation(); handleRotate('cw'); }}
               title="Ruota destra"
             >
-              <RotateCw className="h-3.5 w-3.5" />
+              <RotateCw className="h-3 w-3" />
             </Button>
             <Button 
               variant="ghost" 
@@ -164,7 +176,7 @@ const PhotoViewer = ({ photo, onDelete, onCrop }) => {
               onClick={(e) => { e.stopPropagation(); setShowFullscreen(true); }}
               title="Ingrandisci"
             >
-              <Maximize2 className="h-3.5 w-3.5" />
+              <Maximize2 className="h-3 w-3" />
             </Button>
             <Button 
               variant="ghost" 
@@ -173,55 +185,56 @@ const PhotoViewer = ({ photo, onDelete, onCrop }) => {
               onClick={(e) => { e.stopPropagation(); onDelete(photo.id || photo.tempId); }}
               title="Elimina"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-3 w-3" />
             </Button>
           </div>
         </div>
 
         {photo.descrizione && (
-          <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded max-w-[90%] truncate">
-            {photo.descrizione}
+          <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1 py-0.5 rounded max-w-[90%] truncate">
+            {photo.descrizione.substring(0, 15)}
           </div>
         )}
       </div>
 
       {/* Fullscreen Modal */}
       <Dialog open={showFullscreen} onOpenChange={setShowFullscreen}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-2">
-          <div className="relative flex flex-col h-full">
-            <div className="flex items-center justify-between p-2 border-b">
-              <span className="text-sm font-medium">{photo.descrizione || 'Visualizza foto'}</span>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleRotate('ccw')}>
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleRotate('cw')}>
-                  <RotateCw className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setZoom(z => Math.min(3, z + 0.2))}>
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setZoom(z => Math.max(0.3, z - 0.2))}>
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div 
-              className="flex-1 flex items-center justify-center overflow-auto p-4 bg-gray-900"
-              style={{ minHeight: '70vh' }}
-            >
-              <img
-                src={imageSrc}
-                alt={photo.descrizione || 'Allegato'}
-                style={{
-                  transform: `rotate(${rotation}deg) scale(${zoom})`,
-                  transition: 'transform 0.3s ease',
-                  maxWidth: isRotated90or270 ? '70vh' : '90vw',
-                  maxHeight: isRotated90or270 ? '90vw' : '70vh',
-                  objectFit: 'contain'
-                }}
-              />
-            </div>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] p-4">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-sm">{photo.descrizione || 'Visualizza foto'}</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center gap-2 pb-2">
+            <Button variant="outline" size="sm" onClick={() => handleRotate('ccw')}>
+              <RotateCcw className="h-4 w-4 mr-1" /> Ruota Sx
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => handleRotate('cw')}>
+              <RotateCw className="h-4 w-4 mr-1" /> Ruota Dx
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setZoom(z => Math.min(3, z + 0.25))}>
+              <ZoomIn className="h-4 w-4 mr-1" /> Zoom +
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}>
+              <ZoomOut className="h-4 w-4 mr-1" /> Zoom -
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setZoom(1); setRotation(0); }}>
+              Reset
+            </Button>
+          </div>
+          <div 
+            className="flex items-center justify-center overflow-auto bg-gray-900 rounded-lg"
+            style={{ height: '60vh' }}
+          >
+            <img
+              src={imageSrc}
+              alt={photo.descrizione || 'Allegato'}
+              style={{
+                transform: `rotate(${rotation}deg) scale(${zoom})`,
+                transition: 'transform 0.2s ease',
+                maxWidth: isRotated90or270 ? '60vh' : '85vw',
+                maxHeight: isRotated90or270 ? '85vw' : '55vh',
+                objectFit: 'contain'
+              }}
+            />
           </div>
         </DialogContent>
       </Dialog>
@@ -229,16 +242,14 @@ const PhotoViewer = ({ photo, onDelete, onCrop }) => {
   );
 };
 
-// Form iniziale vuoto per scheda completa
+// Form iniziale vuoto
 const getEmptyFormData = () => ({
-  scheda_type: "semplificata", // semplificata o completa
-  // Header
+  scheda_type: "semplificata",
   presidio_ospedaliero: "",
   codice: "",
   unita_operativa: "",
   data_presa_carico: format(new Date(), "yyyy-MM-dd"),
   cartella_clinica: "",
-  // Sezione Catetere Già Presente
   catetere_presente: false,
   catetere_presente_tipo: "",
   catetere_presente_struttura: "",
@@ -247,7 +258,6 @@ const getEmptyFormData = () => ({
   catetere_presente_modalita: "",
   catetere_presente_rx: null,
   catetere_da_sostituire: null,
-  // Sezione Impianto Catetere
   tipo_catetere: "",
   posizionamento_cvc: "",
   posizionamento_cvc_altro: "",
@@ -272,7 +282,6 @@ const getEmptyFormData = () => ({
   data_posizionamento: format(new Date(), "yyyy-MM-dd"),
   operatore: "",
   allegati: [],
-  // Legacy
   data_impianto: format(new Date(), "yyyy-MM-dd"),
 });
 
@@ -391,24 +400,71 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
     setUploadedPhotos(prev => prev.filter(p => (p.id || p.tempId) !== photoId));
   };
 
-  // Genera PDF (solo per scheda completa)
+  // Stampa PDF - apre il PDF in una nuova finestra per la stampa
+  const handlePrintPDF = async (scheda) => {
+    if (scheda.scheda_type === 'semplificata') {
+      toast.error("La stampa PDF è disponibile solo per la scheda completa");
+      return;
+    }
+    try {
+      toast.info("Generazione PDF in corso...");
+      const response = await apiClient.get(`/schede-impianto-picc/${scheda.id}/pdf`, {
+        responseType: 'blob'
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Open PDF in new window for printing
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+      toast.success("PDF pronto per la stampa");
+    } catch (error) {
+      toast.error("Errore nella generazione del PDF");
+    }
+  };
+
+  // Scarica PDF e salva nella cartella paziente
   const handleDownloadPDF = async (scheda) => {
     if (scheda.scheda_type === 'semplificata') {
       toast.error("Il PDF è disponibile solo per la scheda completa");
       return;
     }
     try {
+      toast.info("Download PDF in corso...");
       const response = await apiClient.get(`/schede-impianto-picc/${scheda.id}/pdf`, {
         responseType: 'blob'
       });
+      
+      // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `scheda_impianto_${scheda.data_posizionamento || scheda.data_impianto || 'nd'}.pdf`);
+      const filename = `scheda_impianto_${patient?.cognome || ''}_${patient?.nome || ''}_${scheda.data_posizionamento || scheda.data_impianto || 'nd'}.pdf`;
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      
+      // Save to patient folder (create a document record)
+      try {
+        await apiClient.post("/documents", {
+          patient_id: patientId,
+          ambulatorio,
+          tipo: "scheda_impianto_picc",
+          nome: filename,
+          scheda_id: scheda.id,
+          data: scheda.data_posizionamento || scheda.data_impianto
+        });
+      } catch (docError) {
+        // Silently fail if documents endpoint doesn't exist
+        console.log("Document save skipped");
+      }
+      
       toast.success("PDF scaricato");
     } catch (error) {
       toast.error("Errore nel download del PDF");
@@ -428,65 +484,60 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
 
   // ========== FORM SEMPLIFICATO ==========
   const renderSimplifiedForm = (data, readOnly = false) => (
-    <div className="space-y-6 p-4">
-      <div className="text-center mb-4">
-        <h3 className="text-lg font-bold">Scheda Impianto Semplificata</h3>
-        <p className="text-sm text-gray-500">Per statistiche rapide</p>
+    <div className="space-y-5 p-4">
+      <div className="text-center mb-3">
+        <h3 className="text-base font-bold text-blue-700">Scheda Impianto Semplificata</h3>
+        <p className="text-xs text-gray-500">Per statistiche rapide</p>
       </div>
 
       {/* Tipo di Impianto */}
-      <div className="space-y-3">
-        <Label className="font-semibold">Tipo di Impianto *</Label>
-        <div className="grid grid-cols-3 gap-3">
+      <div className="space-y-2">
+        <Label className="font-semibold text-sm">Tipo di Impianto *</Label>
+        <div className="grid grid-cols-3 gap-2">
           {TIPO_IMPIANTO_SEMPLICE.map(opt => (
             <div 
               key={opt.id} 
-              className={`p-3 border-2 rounded-lg cursor-pointer text-center transition-all ${
+              className={`p-2.5 border-2 rounded-lg cursor-pointer text-center transition-all text-sm ${
                 data.tipo_catetere === opt.id 
-                  ? 'border-blue-500 bg-blue-50' 
+                  ? 'border-blue-500 bg-blue-50 font-medium' 
                   : 'border-gray-200 hover:border-gray-300'
-              } ${readOnly ? 'cursor-default' : ''}`}
+              } ${readOnly ? 'cursor-default opacity-70' : ''}`}
               onClick={() => !readOnly && setFormData(p => ({...p, tipo_catetere: opt.id}))}
             >
-              <span className="font-medium">{opt.label}</span>
+              {opt.label}
             </div>
           ))}
         </div>
       </div>
 
       {/* Braccio e Vena */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label className="font-semibold">Braccio *</Label>
-          <div className="flex gap-3">
-            <div 
-              className={`flex-1 p-3 border-2 rounded-lg cursor-pointer text-center ${
-                data.braccio === 'dx' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-              } ${readOnly ? 'cursor-default' : ''}`}
-              onClick={() => !readOnly && setFormData(p => ({...p, braccio: 'dx'}))}
-            >
-              Destro
-            </div>
-            <div 
-              className={`flex-1 p-3 border-2 rounded-lg cursor-pointer text-center ${
-                data.braccio === 'sn' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-              } ${readOnly ? 'cursor-default' : ''}`}
-              onClick={() => !readOnly && setFormData(p => ({...p, braccio: 'sn'}))}
-            >
-              Sinistro
-            </div>
+          <Label className="font-semibold text-sm">Braccio *</Label>
+          <div className="flex gap-2">
+            {[{id: 'dx', label: 'Destro'}, {id: 'sn', label: 'Sinistro'}].map(opt => (
+              <div 
+                key={opt.id}
+                className={`flex-1 p-2 border-2 rounded-lg cursor-pointer text-center text-sm ${
+                  data.braccio === opt.id ? 'border-blue-500 bg-blue-50 font-medium' : 'border-gray-200'
+                } ${readOnly ? 'cursor-default opacity-70' : ''}`}
+                onClick={() => !readOnly && setFormData(p => ({...p, braccio: opt.id}))}
+              >
+                {opt.label}
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label className="font-semibold">Vena *</Label>
-          <div className="flex gap-2">
+          <Label className="font-semibold text-sm">Vena *</Label>
+          <div className="flex gap-1.5">
             {VENA_OPTIONS.map(opt => (
               <div 
                 key={opt.id}
-                className={`flex-1 p-3 border-2 rounded-lg cursor-pointer text-center text-sm ${
-                  data.vena === opt.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                } ${readOnly ? 'cursor-default' : ''}`}
+                className={`flex-1 p-2 border-2 rounded-lg cursor-pointer text-center text-xs ${
+                  data.vena === opt.id ? 'border-blue-500 bg-blue-50 font-medium' : 'border-gray-200'
+                } ${readOnly ? 'cursor-default opacity-70' : ''}`}
                 onClick={() => !readOnly && setFormData(p => ({...p, vena: opt.id}))}
               >
                 {opt.label}
@@ -498,20 +549,20 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
 
       {/* Exit Site */}
       <div className="space-y-2">
-        <Label className="font-semibold">Exit-site (cm)</Label>
+        <Label className="font-semibold text-sm">Exit-site (cm)</Label>
         <Input 
           value={data.exit_site_cm || ''} 
           onChange={e => setFormData(p => ({...p, exit_site_cm: e.target.value}))}
           disabled={readOnly}
           placeholder="es. 35"
-          className="max-w-32"
+          className="max-w-28 h-9"
         />
       </div>
 
       {/* Tunnelizzazione */}
       <div className="space-y-2">
-        <div className="flex items-center gap-4">
-          <Label className="font-semibold">Tunnelizzazione</Label>
+        <div className="flex items-center gap-3">
+          <Label className="font-semibold text-sm">Tunnelizzazione</Label>
           <div className="flex items-center gap-2">
             <Checkbox 
               checked={data.tunnelizzazione === true}
@@ -522,37 +573,37 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
               }))}
               disabled={readOnly}
             />
-            <span>Sì</span>
+            <span className="text-sm">Sì</span>
           </div>
+          {data.tunnelizzazione && (
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-gray-600">Note (max 6 car.):</Label>
+              <Input 
+                value={data.tunnelizzazione_note || ''} 
+                onChange={e => setFormData(p => ({
+                  ...p, 
+                  tunnelizzazione_note: e.target.value.slice(0, 6)
+                }))}
+                disabled={readOnly}
+                maxLength={6}
+                placeholder="3cm"
+                className="w-16 h-8 text-sm"
+              />
+            </div>
+          )}
         </div>
-        {data.tunnelizzazione && (
-          <div className="ml-6">
-            <Label className="text-sm text-gray-600">Note (max 6 caratteri)</Label>
-            <Input 
-              value={data.tunnelizzazione_note || ''} 
-              onChange={e => setFormData(p => ({
-                ...p, 
-                tunnelizzazione_note: e.target.value.slice(0, 6)
-              }))}
-              disabled={readOnly}
-              maxLength={6}
-              placeholder="es. 3cm"
-              className="max-w-24"
-            />
-          </div>
-        )}
       </div>
 
       {/* Motivazione */}
       <div className="space-y-2">
-        <Label className="font-semibold">Motivazione Impianto</Label>
-        <div className="flex flex-wrap gap-2">
+        <Label className="font-semibold text-sm">Motivazione Impianto</Label>
+        <div className="flex flex-wrap gap-1.5">
           {MOTIVAZIONE_OPTIONS.map(opt => (
             <div 
               key={opt.id}
-              className={`px-3 py-2 border-2 rounded-lg cursor-pointer text-sm ${
-                (data.motivazione || []).includes(opt.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-              } ${readOnly ? 'cursor-default' : ''}`}
+              className={`px-2.5 py-1.5 border-2 rounded-lg cursor-pointer text-xs ${
+                (data.motivazione || []).includes(opt.id) ? 'border-blue-500 bg-blue-50 font-medium' : 'border-gray-200'
+              } ${readOnly ? 'cursor-default opacity-70' : ''}`}
               onClick={() => !readOnly && toggleArrayValue('motivazione', opt.id)}
             >
               {opt.label}
@@ -565,64 +616,54 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
             onChange={e => setFormData(p => ({...p, motivazione_altro: e.target.value}))}
             disabled={readOnly}
             placeholder="Specificare..."
-            className="mt-2"
+            className="mt-2 h-9"
           />
         )}
       </div>
 
-      {/* Operatore */}
-      <div className="space-y-2">
-        <Label className="font-semibold">Operatore che ha impiantato *</Label>
-        <Input 
-          value={data.operatore || ''} 
-          onChange={e => setFormData(p => ({...p, operatore: e.target.value}))}
-          disabled={readOnly}
-          placeholder="Nome e Cognome"
-        />
-      </div>
-
-      {/* Data Impianto */}
-      <div className="space-y-2">
-        <Label className="font-semibold">Data Impianto *</Label>
-        <Input 
-          type="date"
-          value={data.data_posizionamento || ''} 
-          onChange={e => setFormData(p => ({...p, data_posizionamento: e.target.value}))}
-          disabled={readOnly}
-          className="max-w-48"
-        />
+      {/* Operatore e Data */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label className="font-semibold text-sm">Operatore *</Label>
+          <Input 
+            value={data.operatore || ''} 
+            onChange={e => setFormData(p => ({...p, operatore: e.target.value}))}
+            disabled={readOnly}
+            placeholder="Nome e Cognome"
+            className="h-9"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="font-semibold text-sm">Data Impianto *</Label>
+          <Input 
+            type="date"
+            value={data.data_posizionamento || ''} 
+            onChange={e => setFormData(p => ({...p, data_posizionamento: e.target.value}))}
+            disabled={readOnly}
+            className="h-9"
+          />
+        </div>
       </div>
 
       {/* Allegati */}
       {!readOnly && (
-        <div className="space-y-3 pt-4 border-t">
+        <div className="space-y-2 pt-3 border-t">
           <div className="flex items-center justify-between">
-            <Label className="font-semibold">Allegati / Foto</Label>
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-4 w-4 mr-2" /> Carica
+            <Label className="font-semibold text-sm">Allegati / Foto</Label>
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-8">
+              <Upload className="h-3.5 w-3.5 mr-1.5" /> Carica
             </Button>
-            <input 
-              ref={fileInputRef}
-              type="file" 
-              accept="image/*" 
-              multiple 
-              onChange={handlePhotoUpload}
-              className="hidden"
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" />
           </div>
           
           {uploadedPhotos.length > 0 ? (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-wrap gap-2">
               {uploadedPhotos.map((photo) => (
-                <PhotoViewer 
-                  key={photo.id || photo.tempId}
-                  photo={photo}
-                  onDelete={handleDeletePhoto}
-                />
+                <PhotoViewer key={photo.id || photo.tempId} photo={photo} onDelete={handleDeletePhoto} />
               ))}
             </div>
           ) : (
-            <div className="text-center text-gray-400 py-4 border border-dashed rounded-lg text-sm">
+            <div className="text-center text-gray-400 py-3 border border-dashed rounded-lg text-xs">
               Nessun allegato
             </div>
           )}
@@ -633,261 +674,203 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
 
   // ========== FORM COMPLETO ==========
   const renderFullForm = (data, readOnly = false) => (
-    <div className="space-y-4 text-sm">
+    <div className="space-y-3 text-xs">
       {/* HEADER */}
-      <div className="border-2 border-gray-300 p-3 bg-gray-50">
-        <div className="text-center font-bold text-base mb-2">
+      <div className="border-2 border-gray-300 p-2.5 bg-gray-50">
+        <div className="text-center font-bold text-sm mb-1">
           SCHEDA IMPIANTO e GESTIONE ACCESSI VENOSI
         </div>
-        <div className="text-right text-xs text-gray-500 -mt-6 mb-2">Allegato n. 2</div>
+        <div className="text-right text-[10px] text-gray-500 -mt-4 mb-1">Allegato n. 2</div>
         
-        <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="grid grid-cols-2 gap-2 text-[11px]">
           <div className="space-y-1">
             <div className="flex items-center gap-1">
-              <Label className="whitespace-nowrap text-xs">Presidio Ospedaliero:</Label>
-              <Input 
-                value={data.presidio_ospedaliero || ''} 
-                onChange={e => setFormData(p => ({...p, presidio_ospedaliero: e.target.value}))}
-                disabled={readOnly}
-                className="h-7 text-xs"
-              />
+              <Label className="whitespace-nowrap text-[11px]">Presidio:</Label>
+              <Input value={data.presidio_ospedaliero || ''} onChange={e => setFormData(p => ({...p, presidio_ospedaliero: e.target.value}))} disabled={readOnly} className="h-6 text-[11px]" />
             </div>
             <div className="flex items-center gap-1">
-              <Label className="text-xs">Codice:</Label>
-              <Input value={data.codice || ''} onChange={e => setFormData(p => ({...p, codice: e.target.value}))} disabled={readOnly} className="h-7 text-xs w-16" />
-              <Label className="text-xs ml-2">U.O.:</Label>
-              <Input value={data.unita_operativa || ''} onChange={e => setFormData(p => ({...p, unita_operativa: e.target.value}))} disabled={readOnly} className="h-7 text-xs flex-1" />
+              <Label className="text-[11px]">Codice:</Label>
+              <Input value={data.codice || ''} onChange={e => setFormData(p => ({...p, codice: e.target.value}))} disabled={readOnly} className="h-6 text-[11px] w-14" />
+              <Label className="text-[11px] ml-1">U.O.:</Label>
+              <Input value={data.unita_operativa || ''} onChange={e => setFormData(p => ({...p, unita_operativa: e.target.value}))} disabled={readOnly} className="h-6 text-[11px] flex-1" />
             </div>
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-1">
-              <Label className="text-xs whitespace-nowrap">Preso in carico dal:</Label>
-              <Input type="date" value={data.data_presa_carico || ''} onChange={e => setFormData(p => ({...p, data_presa_carico: e.target.value}))} disabled={readOnly} className="h-7 text-xs w-32" />
+              <Label className="text-[11px] whitespace-nowrap">Preso in carico:</Label>
+              <Input type="date" value={data.data_presa_carico || ''} onChange={e => setFormData(p => ({...p, data_presa_carico: e.target.value}))} disabled={readOnly} className="h-6 text-[11px] w-28" />
             </div>
             <div className="flex items-center gap-1">
-              <Label className="text-xs">Cartella Clinica n.:</Label>
-              <Input value={data.cartella_clinica || ''} onChange={e => setFormData(p => ({...p, cartella_clinica: e.target.value}))} disabled={readOnly} className="h-7 text-xs flex-1" />
+              <Label className="text-[11px]">Cartella n.:</Label>
+              <Input value={data.cartella_clinica || ''} onChange={e => setFormData(p => ({...p, cartella_clinica: e.target.value}))} disabled={readOnly} className="h-6 text-[11px] flex-1" />
             </div>
           </div>
         </div>
 
-        <div className="mt-2 pt-2 border-t flex items-center gap-4 text-xs">
+        <div className="mt-1.5 pt-1.5 border-t flex items-center gap-3 text-[11px]">
           <span><b>Paziente:</b> {patient?.cognome} {patient?.nome}</span>
           <span><b>Nato:</b> {patient?.data_nascita || '-'}</span>
-          <span className="flex items-center gap-1"><b>Sesso:</b> 
-            <Checkbox checked={patient?.sesso === 'M'} disabled className="h-3 w-3" /> M
-            <Checkbox checked={patient?.sesso === 'F'} disabled className="h-3 w-3" /> F
-          </span>
+          <span><b>Sesso:</b> {patient?.sesso || '-'}</span>
         </div>
       </div>
 
       {/* SEZIONE CATETERE GIÀ PRESENTE */}
       <div className="border-2 border-gray-300">
-        <div className="bg-gray-200 px-3 py-1 font-bold text-center text-xs">
-          SEZIONE CATETERE GIÀ PRESENTE
-        </div>
-        <div className="p-2 space-y-2 text-xs">
-          <p className="text-[10px] italic text-gray-500">Da compilare se catetere già presente al momento della presa in carico</p>
-
-          <div className="space-y-1">
-            <Label className="font-semibold text-xs">Tipo di Catetere:</Label>
-            <div className="grid grid-cols-2 gap-1">
-              {TIPO_CATETERE_OPTIONS.map(opt => (
-                <div key={opt.id} className="flex items-center gap-1">
-                  <Checkbox checked={data.catetere_presente_tipo === opt.id} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_presente_tipo: c ? opt.id : ''}))} disabled={readOnly} className="h-3 w-3" />
-                  <span className="text-[11px]">{opt.label}</span>
-                </div>
-              ))}
-            </div>
+        <div className="bg-gray-200 px-2 py-1 font-bold text-center text-[11px]">SEZIONE CATETERE GIÀ PRESENTE</div>
+        <div className="p-2 space-y-1.5 text-[11px]">
+          <div className="grid grid-cols-3 gap-1">
+            {TIPO_CATETERE_OPTIONS.map(opt => (
+              <div key={opt.id} className="flex items-center gap-1">
+                <Checkbox checked={data.catetere_presente_tipo === opt.id} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_presente_tipo: c ? opt.id : ''}))} disabled={readOnly} className="h-3 w-3" />
+                <span className="text-[10px] truncate">{opt.label}</span>
+              </div>
+            ))}
           </div>
-
           <div className="flex items-center gap-2 flex-wrap">
-            <Label className="text-xs">Struttura/reparto:</Label>
-            <Input value={data.catetere_presente_struttura || ''} onChange={e => setFormData(p => ({...p, catetere_presente_struttura: e.target.value}))} disabled={readOnly} className="h-6 text-xs w-40" />
-            <Label className="text-xs">data:</Label>
-            <Input type="date" value={data.catetere_presente_data || ''} onChange={e => setFormData(p => ({...p, catetere_presente_data: e.target.value}))} disabled={readOnly} className="h-6 text-xs w-28" />
-            <Label className="text-xs">ora:</Label>
-            <Input type="time" value={data.catetere_presente_ora || ''} onChange={e => setFormData(p => ({...p, catetere_presente_ora: e.target.value}))} disabled={readOnly} className="h-6 text-xs w-20" />
+            <span>Struttura:</span>
+            <Input value={data.catetere_presente_struttura || ''} onChange={e => setFormData(p => ({...p, catetere_presente_struttura: e.target.value}))} disabled={readOnly} className="h-5 text-[10px] w-32" />
+            <span>data:</span>
+            <Input type="date" value={data.catetere_presente_data || ''} onChange={e => setFormData(p => ({...p, catetere_presente_data: e.target.value}))} disabled={readOnly} className="h-5 text-[10px] w-24" />
+            <span>ora:</span>
+            <Input type="time" value={data.catetere_presente_ora || ''} onChange={e => setFormData(p => ({...p, catetere_presente_ora: e.target.value}))} disabled={readOnly} className="h-5 text-[10px] w-16" />
           </div>
-
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-2 text-[10px]">
             <span>modalità:</span>
-            <Checkbox checked={data.catetere_presente_modalita === 'emergenza_urgenza'} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_presente_modalita: c ? 'emergenza_urgenza' : ''}))} disabled={readOnly} className="h-3 w-3" />
-            <span>emergenza/urgenza</span>
-            <Checkbox checked={data.catetere_presente_modalita === 'programmato_elezione'} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_presente_modalita: c ? 'programmato_elezione' : ''}))} disabled={readOnly} className="h-3 w-3" />
-            <span>programmato/elezione</span>
-          </div>
-
-          <div className="flex items-center gap-3 text-xs">
-            <span>Controllo RX Post-Inserimento:</span>
+            <Checkbox checked={data.catetere_presente_modalita === 'emergenza_urgenza'} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_presente_modalita: c ? 'emergenza_urgenza' : ''}))} disabled={readOnly} className="h-3 w-3" /><span>emergenza/urgenza</span>
+            <Checkbox checked={data.catetere_presente_modalita === 'programmato_elezione'} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_presente_modalita: c ? 'programmato_elezione' : ''}))} disabled={readOnly} className="h-3 w-3" /><span>programmato</span>
+            <span className="ml-2">RX Post:</span>
             <Checkbox checked={data.catetere_presente_rx === true} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_presente_rx: c ? true : null}))} disabled={readOnly} className="h-3 w-3" /><span>SI</span>
             <Checkbox checked={data.catetere_presente_rx === false} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_presente_rx: c ? false : null}))} disabled={readOnly} className="h-3 w-3" /><span>NO</span>
-          </div>
-
-          <div className="flex items-center gap-3 text-xs">
-            <span>Catetere da sostituire:</span>
+            <span className="ml-2">Da sostituire:</span>
             <Checkbox checked={data.catetere_da_sostituire === true} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_da_sostituire: c ? true : null}))} disabled={readOnly} className="h-3 w-3" /><span>SI</span>
             <Checkbox checked={data.catetere_da_sostituire === false} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, catetere_da_sostituire: c ? false : null}))} disabled={readOnly} className="h-3 w-3" /><span>NO</span>
-            <span className="text-[10px] text-gray-500">se si compilare la SEZIONE IMPIANTO</span>
           </div>
         </div>
       </div>
 
       {/* SEZIONE IMPIANTO CATETERE */}
       <div className="border-2 border-gray-300">
-        <div className="bg-gray-200 px-3 py-1 font-bold text-center text-xs">
-          SEZIONE IMPIANTO CATETERE
-        </div>
-        <div className="p-2 space-y-2 text-xs">
-          <p className="text-[10px] italic text-gray-500">Da compilare se catetere viene impiantato nella struttura</p>
-
-          {/* TIPO DI CATETERE */}
-          <div className="space-y-1">
-            <Label className="font-semibold text-xs">TIPO DI CATETERE:</Label>
-            <div className="grid grid-cols-2 gap-1">
-              {TIPO_CATETERE_OPTIONS.map(opt => (
-                <div key={opt.id} className="flex items-center gap-1">
-                  <Checkbox checked={data.tipo_catetere === opt.id} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, tipo_catetere: c ? opt.id : ''}))} disabled={readOnly} className="h-3 w-3" />
-                  <span className="text-[11px]">{opt.label}</span>
-                </div>
-              ))}
-            </div>
+        <div className="bg-gray-200 px-2 py-1 font-bold text-center text-[11px]">SEZIONE IMPIANTO CATETERE</div>
+        <div className="p-2 space-y-1.5 text-[10px]">
+          {/* TIPO */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <b>TIPO:</b>
+            {TIPO_CATETERE_OPTIONS.map(opt => (
+              <span key={opt.id} className="flex items-center gap-0.5">
+                <Checkbox checked={data.tipo_catetere === opt.id} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, tipo_catetere: c ? opt.id : ''}))} disabled={readOnly} className="h-3 w-3" />
+                <span className="text-[9px]">{opt.label.split('(')[0].trim()}</span>
+              </span>
+            ))}
           </div>
-
-          {/* POSIZIONAMENTO CVC */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Label className="font-semibold text-xs">POSIZIONAMENTO CVC:</Label>
+          {/* CVC */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <b>CVC:</b>
             {POSIZIONAMENTO_CVC_OPTIONS.map(opt => (
               <span key={opt.id} className="flex items-center gap-0.5">
                 <Checkbox checked={data.posizionamento_cvc === opt.id} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, posizionamento_cvc: c ? opt.id : ''}))} disabled={readOnly} className="h-3 w-3" />
-                <span className="text-[11px]">{opt.label}</span>
+                <span>{opt.label}</span>
               </span>
             ))}
-            {data.posizionamento_cvc === 'altro' && (
-              <Input value={data.posizionamento_cvc_altro || ''} onChange={e => setFormData(p => ({...p, posizionamento_cvc_altro: e.target.value}))} disabled={readOnly} className="h-6 text-xs w-24" placeholder="specificare" />
-            )}
           </div>
-
-          {/* POSIZIONAMENTO PICC */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Label className="font-semibold text-xs">POSIZIONAMENTO PICC:</Label>
-            <Checkbox checked={data.braccio === 'dx'} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, braccio: c ? 'dx' : ''}))} disabled={readOnly} className="h-3 w-3" /><span className="text-[11px]">braccio dx</span>
-            <Checkbox checked={data.braccio === 'sn'} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, braccio: c ? 'sn' : ''}))} disabled={readOnly} className="h-3 w-3" /><span className="text-[11px]">braccio sn</span>
-            <span className="font-semibold ml-2">Vena:</span>
+          {/* PICC */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <b>PICC:</b>
+            <Checkbox checked={data.braccio === 'dx'} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, braccio: c ? 'dx' : ''}))} disabled={readOnly} className="h-3 w-3" /><span>dx</span>
+            <Checkbox checked={data.braccio === 'sn'} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, braccio: c ? 'sn' : ''}))} disabled={readOnly} className="h-3 w-3" /><span>sn</span>
+            <b className="ml-2">Vena:</b>
             {VENA_OPTIONS.map(opt => (
               <span key={opt.id} className="flex items-center gap-0.5">
                 <Checkbox checked={data.vena === opt.id} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, vena: c ? opt.id : ''}))} disabled={readOnly} className="h-3 w-3" />
-                <span className="text-[11px]">{opt.label}</span>
+                <span>{opt.label}</span>
               </span>
             ))}
-            <span className="ml-2">Exit-site cm:</span>
-            <Input value={data.exit_site_cm || ''} onChange={e => setFormData(p => ({...p, exit_site_cm: e.target.value}))} disabled={readOnly} className="h-6 text-xs w-12" />
+            <span className="ml-1">Exit-site:</span>
+            <Input value={data.exit_site_cm || ''} onChange={e => setFormData(p => ({...p, exit_site_cm: e.target.value}))} disabled={readOnly} className="h-5 text-[10px] w-10" />
+            <span>cm</span>
           </div>
-
           {/* PROCEDURE */}
-          <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-1">
             {[
-              { key: 'valutazione_sito', label: 'VALUTAZIONE MIGLIOR SITO DI INSERIMENTO' },
-              { key: 'ecoguidato', label: 'IMPIANTO ECOGUIDATO' },
-              { key: 'igiene_mani', label: 'IGIENE DELLE MANI (LAVAGGIO ANTISETTICO O FRIZIONE ALCOLICA)' },
-              { key: 'precauzioni_barriera', label: 'UTILIZZO MASSIME PRECAUZIONI DI BARRIERA' },
+              { key: 'valutazione_sito', label: 'Valutazione sito' },
+              { key: 'ecoguidato', label: 'Ecoguidato' },
+              { key: 'igiene_mani', label: 'Igiene mani' },
+              { key: 'precauzioni_barriera', label: 'Precauzioni barriera' },
+              { key: 'sutureless_device', label: 'Sutureless device' },
+              { key: 'medicazione_trasparente', label: 'Med. trasparente' },
+              { key: 'medicazione_occlusiva', label: 'Med. occlusiva' },
+              { key: 'controllo_rx', label: 'Controllo RX' },
+              { key: 'controllo_ecg', label: 'Controllo ECG' },
             ].map(item => (
-              <div key={item.key} className="flex items-center gap-2">
-                <span className="text-[11px] min-w-[280px]"><b>{item.label}:</b></span>
-                <Checkbox checked={data[item.key] === true} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, [item.key]: c ? true : null}))} disabled={readOnly} className="h-3 w-3" /><span className="text-[11px]">SI</span>
-                <Checkbox checked={data[item.key] === false} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, [item.key]: c ? false : null}))} disabled={readOnly} className="h-3 w-3" /><span className="text-[11px]">NO</span>
+              <div key={item.key} className="flex items-center gap-1">
+                <span className="w-24 truncate">{item.label}:</span>
+                <Checkbox checked={data[item.key] === true} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, [item.key]: c ? true : null}))} disabled={readOnly} className="h-3 w-3" /><span>SI</span>
+                <Checkbox checked={data[item.key] === false} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, [item.key]: c ? false : null}))} disabled={readOnly} className="h-3 w-3" /><span>NO</span>
               </div>
             ))}
           </div>
-
           {/* DISINFEZIONE */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Label className="font-semibold text-xs">DISINFEZIONE CUTE INTEGRA:</Label>
+          <div className="flex items-center gap-1 flex-wrap">
+            <b>Disinfezione:</b>
             {DISINFEZIONE_OPTIONS.map(opt => (
               <span key={opt.id} className="flex items-center gap-0.5">
                 <Checkbox checked={(data.disinfezione || []).includes(opt.id)} onCheckedChange={() => !readOnly && toggleArrayValue('disinfezione', opt.id)} disabled={readOnly} className="h-3 w-3" />
-                <span className="text-[10px]">{opt.label}</span>
+                <span className="text-[9px]">{opt.label}</span>
               </span>
             ))}
           </div>
-
-          {/* DISPOSITIVI */}
-          <div className="space-y-1">
-            {[
-              { key: 'sutureless_device', label: 'IMPIEGO DI "SUTURELESS DEVICES" PER IL FISSAGGIO' },
-              { key: 'medicazione_trasparente', label: 'IMPIEGO DI MEDICAZIONE SEMIPERMEABILE TRASPARENTE' },
-              { key: 'medicazione_occlusiva', label: 'IMPIEGO DI MEDICAZIONE OCCLUSIVA' },
-              { key: 'controllo_rx', label: 'CONTROLLO RX POST-INSERIMENTO' },
-              { key: 'controllo_ecg', label: 'CONTROLLO ECG POST INSERIMENTO' },
-            ].map(item => (
-              <div key={item.key} className="flex items-center gap-2">
-                <span className="text-[11px] min-w-[280px]"><b>{item.label}:</b></span>
-                <Checkbox checked={data[item.key] === true} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, [item.key]: c ? true : null}))} disabled={readOnly} className="h-3 w-3" /><span className="text-[11px]">SI</span>
-                <Checkbox checked={data[item.key] === false} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, [item.key]: c ? false : null}))} disabled={readOnly} className="h-3 w-3" /><span className="text-[11px]">NO</span>
-              </div>
-            ))}
-          </div>
-
           {/* MODALITÀ */}
-          <div className="flex items-center gap-3">
-            <Label className="font-semibold text-xs">MODALITÀ:</Label>
+          <div className="flex items-center gap-2">
+            <b>Modalità:</b>
             {['emergenza', 'urgenza', 'elezione'].map(m => (
               <span key={m} className="flex items-center gap-0.5">
                 <Checkbox checked={data.modalita === m} onCheckedChange={(c) => !readOnly && setFormData(p => ({...p, modalita: c ? m : ''}))} disabled={readOnly} className="h-3 w-3" />
-                <span className="text-[11px] uppercase">{m}</span>
+                <span className="uppercase">{m}</span>
               </span>
             ))}
           </div>
-
           {/* MOTIVAZIONE */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Label className="font-semibold text-xs">MOTIVAZIONE INSERIMENTO CVC:</Label>
+          <div className="flex items-center gap-1 flex-wrap">
+            <b>Motivazione:</b>
             {MOTIVAZIONE_OPTIONS.map(opt => (
               <span key={opt.id} className="flex items-center gap-0.5">
                 <Checkbox checked={(data.motivazione || []).includes(opt.id)} onCheckedChange={() => !readOnly && toggleArrayValue('motivazione', opt.id)} disabled={readOnly} className="h-3 w-3" />
-                <span className="text-[11px]">{opt.label}</span>
+                <span>{opt.label}</span>
               </span>
             ))}
-            {(data.motivazione || []).includes('altro') && (
-              <Input value={data.motivazione_altro || ''} onChange={e => setFormData(p => ({...p, motivazione_altro: e.target.value}))} disabled={readOnly} className="h-6 text-xs w-32" placeholder="specificare" />
-            )}
           </div>
         </div>
       </div>
 
       {/* FOOTER */}
-      <div className="border-2 border-gray-300 p-2 space-y-2">
-        <div className="flex items-center gap-4">
-          <Label className="font-semibold text-xs">DATA POSIZIONAMENTO:</Label>
-          <Input type="date" value={data.data_posizionamento || ''} onChange={e => setFormData(p => ({...p, data_posizionamento: e.target.value}))} disabled={readOnly} className="h-7 text-xs w-36" />
-        </div>
-        <div className="flex items-center gap-4">
-          <Label className="text-xs">OPERATORE CHE HA IMPIANTATO:</Label>
-          <Input value={data.operatore || ''} onChange={e => setFormData(p => ({...p, operatore: e.target.value}))} disabled={readOnly} className="h-7 text-xs flex-1" />
-          <Label className="text-xs">FIRMA:</Label>
-          <div className="w-32 border-b-2 border-gray-400"></div>
+      <div className="border-2 border-gray-300 p-2 space-y-1.5">
+        <div className="flex items-center gap-3 text-[11px]">
+          <b>DATA:</b>
+          <Input type="date" value={data.data_posizionamento || ''} onChange={e => setFormData(p => ({...p, data_posizionamento: e.target.value}))} disabled={readOnly} className="h-6 text-[11px] w-32" />
+          <b className="ml-2">OPERATORE:</b>
+          <Input value={data.operatore || ''} onChange={e => setFormData(p => ({...p, operatore: e.target.value}))} disabled={readOnly} className="h-6 text-[11px] flex-1" />
+          <b>FIRMA:</b>
+          <div className="w-24 border-b border-gray-400"></div>
         </div>
       </div>
 
       {/* ALLEGATI */}
       {!readOnly && (
-        <div className="border-2 border-gray-300 p-2 space-y-2">
+        <div className="border-2 border-gray-300 p-2 space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label className="font-semibold text-xs">ALLEGATI / FOTO</Label>
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-7 text-xs">
+            <Label className="font-semibold text-[11px]">ALLEGATI</Label>
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="h-6 text-[10px]">
               <Upload className="h-3 w-3 mr-1" /> Carica
             </Button>
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" />
           </div>
-          
           {uploadedPhotos.length > 0 ? (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="flex flex-wrap gap-2">
               {uploadedPhotos.map((photo) => (
                 <PhotoViewer key={photo.id || photo.tempId} photo={photo} onDelete={handleDeletePhoto} />
               ))}
             </div>
           ) : (
-            <div className="text-center text-gray-400 py-3 border border-dashed rounded text-xs">Nessun allegato</div>
+            <div className="text-center text-gray-400 py-2 border border-dashed rounded text-[10px]">Nessun allegato</div>
           )}
         </div>
       )}
@@ -897,7 +880,7 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
   // Get label for tipo
   const getTipoLabel = (tipo) => {
     const opt = [...TIPO_CATETERE_OPTIONS, ...TIPO_IMPIANTO_SEMPLICE].find(o => o.id === tipo);
-    return opt?.label || tipo || '-';
+    return opt?.label?.split('(')[0].trim() || tipo || '-';
   };
 
   return (
@@ -914,10 +897,10 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
 
       {/* Lista schede esistenti */}
       {schede && schede.length > 0 ? (
-        <div className="grid gap-3">
+        <div className="grid gap-2">
           {schede.map((scheda) => (
             <Card key={scheda.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="py-3 px-4">
+              <CardHeader className="py-2.5 px-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {scheda.scheda_type === 'completa' ? (
@@ -927,21 +910,21 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
                     )}
                     <div>
                       <CardTitle className="text-sm">
-                        {scheda.scheda_type === 'completa' ? 'Scheda Completa' : 'Scheda Semplificata'} - {scheda.data_posizionamento || scheda.data_impianto ? format(new Date(scheda.data_posizionamento || scheda.data_impianto), "dd/MM/yyyy", { locale: it }) : 'N/D'}
+                        {scheda.scheda_type === 'completa' ? 'Completa' : 'Semplificata'} - {scheda.data_posizionamento || scheda.data_impianto ? format(new Date(scheda.data_posizionamento || scheda.data_impianto), "dd/MM/yyyy", { locale: it }) : 'N/D'}
                       </CardTitle>
                       <p className="text-xs text-gray-500">
-                        {getTipoLabel(scheda.tipo_catetere)} | {scheda.braccio === 'dx' ? 'Destro' : scheda.braccio === 'sn' ? 'Sinistro' : '-'} | {VENA_OPTIONS.find(o => o.id === scheda.vena)?.label || '-'}
+                        {getTipoLabel(scheda.tipo_catetere)} | {scheda.braccio === 'dx' ? 'Dx' : scheda.braccio === 'sn' ? 'Sn' : '-'} | {VENA_OPTIONS.find(o => o.id === scheda.vena)?.label || '-'} | {scheda.operatore || '-'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
                     {scheda.scheda_type === 'completa' && (
                       <>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePrintPDF(scheda)} title="Stampa PDF">
+                          <Printer className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownloadPDF(scheda)} title="Scarica PDF">
                           <Download className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.print()} title="Stampa">
-                          <Printer className="h-4 w-4" />
                         </Button>
                       </>
                     )}
@@ -959,8 +942,8 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
         </div>
       ) : (
         <Card className="bg-gray-50">
-          <CardContent className="py-8 text-center text-gray-500">
-            <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <CardContent className="py-6 text-center text-gray-500">
+            <FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />
             <p>Nessuna scheda impianto registrata</p>
           </CardContent>
         </Card>
@@ -968,27 +951,27 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
 
       {/* Dialog Selezione Tipo Scheda */}
       <Dialog open={selectTypeOpen} onOpenChange={setSelectTypeOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Nuova Scheda Impianto</DialogTitle>
-            <DialogDescription>Seleziona il tipo di scheda da creare</DialogDescription>
+            <DialogDescription>Seleziona il tipo di scheda</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4">
+          <div className="grid grid-cols-2 gap-3 py-3">
             <div 
-              className="border-2 rounded-lg p-4 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
+              className="border-2 rounded-lg p-3 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
               onClick={() => openNewScheda('semplificata')}
             >
-              <FileEdit className="h-10 w-10 mx-auto mb-2 text-blue-600" />
-              <h4 className="font-semibold">Semplificata</h4>
-              <p className="text-xs text-gray-500 mt-1">Campi essenziali per statistiche rapide</p>
+              <FileEdit className="h-8 w-8 mx-auto mb-1.5 text-blue-600" />
+              <h4 className="font-semibold text-sm">Semplificata</h4>
+              <p className="text-[10px] text-gray-500 mt-0.5">Campi essenziali</p>
             </div>
             <div 
-              className="border-2 rounded-lg p-4 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all text-center"
+              className="border-2 rounded-lg p-3 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all text-center"
               onClick={() => openNewScheda('completa')}
             >
-              <FileCheck className="h-10 w-10 mx-auto mb-2 text-green-600" />
-              <h4 className="font-semibold">Completa</h4>
-              <p className="text-xs text-gray-500 mt-1">Modulo ufficiale stampabile in PDF</p>
+              <FileCheck className="h-8 w-8 mx-auto mb-1.5 text-green-600" />
+              <h4 className="font-semibold text-sm">Completa</h4>
+              <p className="text-[10px] text-gray-500 mt-0.5">Modulo ufficiale PDF</p>
             </div>
           </div>
         </DialogContent>
@@ -996,25 +979,25 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
 
       {/* Dialog Nuova Scheda */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className={formData.scheda_type === 'completa' ? "max-w-4xl max-h-[90vh]" : "max-w-lg max-h-[90vh]"}>
-          <DialogHeader className="pb-2">
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className={formData.scheda_type === 'completa' ? "max-w-3xl max-h-[90vh]" : "max-w-md max-h-[90vh]"}>
+          <DialogHeader className="pb-1">
+            <DialogTitle className="flex items-center gap-2 text-base">
               {formData.scheda_type === 'completa' ? <FileCheck className="h-5 w-5 text-green-600" /> : <FileEdit className="h-5 w-5 text-blue-600" />}
               {formData.scheda_type === 'completa' ? 'Nuova Scheda Completa' : 'Nuova Scheda Semplificata'}
             </DialogTitle>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[70vh] pr-2">
+          <ScrollArea className="max-h-[72vh] pr-2">
             {formData.scheda_type === 'semplificata' 
               ? renderSimplifiedForm(formData, false)
               : renderFullForm(formData, false)
             }
           </ScrollArea>
 
-          <div className="flex justify-end gap-2 pt-3 border-t">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annulla</Button>
-            <Button onClick={handleCreate} disabled={saving}>
-              {saving ? "Salvataggio..." : "Salva Scheda"}
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>Annulla</Button>
+            <Button size="sm" onClick={handleCreate} disabled={saving}>
+              {saving ? "Salvataggio..." : "Salva"}
             </Button>
           </div>
         </DialogContent>
@@ -1022,38 +1005,38 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
 
       {/* Dialog Visualizza/Modifica */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className={formData.scheda_type === 'completa' ? "max-w-4xl max-h-[90vh]" : "max-w-lg max-h-[90vh]"}>
-          <DialogHeader className="pb-2">
-            <DialogTitle className="flex items-center justify-between">
+        <DialogContent className={formData.scheda_type === 'completa' ? "max-w-3xl max-h-[90vh]" : "max-w-md max-h-[90vh]"}>
+          <DialogHeader className="pb-1">
+            <DialogTitle className="flex items-center justify-between text-base">
               <span className="flex items-center gap-2">
                 {formData.scheda_type === 'completa' ? <FileCheck className="h-5 w-5 text-green-600" /> : <FileEdit className="h-5 w-5 text-blue-600" />}
                 {formData.scheda_type === 'completa' ? 'Scheda Completa' : 'Scheda Semplificata'}
               </span>
               {!isEditing && (
                 <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                  <Edit2 className="h-4 w-4 mr-1" /> Modifica
+                  <Edit2 className="h-3.5 w-3.5 mr-1" /> Modifica
                 </Button>
               )}
             </DialogTitle>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[70vh] pr-2">
+          <ScrollArea className="max-h-[72vh] pr-2">
             {formData.scheda_type === 'semplificata' 
               ? renderSimplifiedForm(formData, !isEditing)
               : renderFullForm(formData, !isEditing)
             }
           </ScrollArea>
 
-          <div className="flex justify-end gap-2 pt-3 border-t">
+          <div className="flex justify-end gap-2 pt-2 border-t">
             {isEditing ? (
               <>
-                <Button variant="outline" onClick={() => setIsEditing(false)}>Annulla</Button>
-                <Button onClick={handleUpdate} disabled={saving}>
-                  {saving ? "Salvataggio..." : "Salva Modifiche"}
+                <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>Annulla</Button>
+                <Button size="sm" onClick={handleUpdate} disabled={saving}>
+                  {saving ? "Salvataggio..." : "Salva"}
                 </Button>
               </>
             ) : (
-              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Chiudi</Button>
+              <Button variant="outline" size="sm" onClick={() => setEditDialogOpen(false)}>Chiudi</Button>
             )}
           </div>
         </DialogContent>
@@ -1065,7 +1048,7 @@ export const SchedaImpiantoPICC = ({ patientId, ambulatorio, schede, onRefresh, 
           <AlertDialogHeader>
             <AlertDialogTitle>Conferma eliminazione</AlertDialogTitle>
             <AlertDialogDescription>
-              Sei sicuro di voler eliminare questa scheda impianto? L'azione non può essere annullata.
+              Sei sicuro di voler eliminare questa scheda? L'azione non può essere annullata.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
