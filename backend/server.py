@@ -696,8 +696,26 @@ async def create_scheda_medicazione_med(data: SchedaMedicazioneMEDCreate, payloa
     if data.ambulatorio.value not in payload["ambulatori"]:
         raise HTTPException(status_code=403, detail="Non hai accesso a questo ambulatorio")
     
-    # Generate unique code for the scheda
-    codice = generate_scheda_code(data.data_compilazione)
+    # Get patient to use their code
+    patient = await db.patients.find_one({"id": data.patient_id}, {"_id": 0})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Paziente non trovato")
+    
+    # Get or generate patient code
+    codice_paziente = patient.get("codice_paziente")
+    if not codice_paziente:
+        # Generate code for existing patient without one
+        codice_paziente = generate_patient_code(patient.get("nome", ""), patient.get("cognome", ""))
+        while await db.patients.find_one({"codice_paziente": codice_paziente, "id": {"$ne": data.patient_id}}):
+            codice_paziente = generate_patient_code(patient.get("nome", ""), patient.get("cognome", ""))
+        await db.patients.update_one({"id": data.patient_id}, {"$set": {"codice_paziente": codice_paziente}})
+    
+    # Get next scheda number for this patient
+    counter = patient.get("scheda_med_counter", 0) + 1
+    await db.patients.update_one({"id": data.patient_id}, {"$set": {"scheda_med_counter": counter}})
+    
+    # Generate scheda code: codice_paziente-numero (es. m234h-1)
+    codice = f"{codice_paziente}-{counter}"
     
     scheda_data = data.model_dump()
     scheda_data["codice"] = codice
