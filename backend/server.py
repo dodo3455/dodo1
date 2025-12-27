@@ -744,10 +744,13 @@ async def download_scheda_impianto_pdf(scheda_id: str, payload: dict = Depends(v
     # Generate PDF
     pdf_bytes = generate_scheda_impianto_pdf(scheda, patient)
     
+    # Use data_posizionamento or data_impianto for filename
+    data_file = scheda.get('data_posizionamento') or scheda.get('data_impianto') or 'nd'
+    
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=scheda_impianto_{scheda.get('data_impianto', 'nd')}.pdf"}
+        headers={"Content-Disposition": f"attachment; filename=scheda_impianto_{data_file}.pdf"}
     )
 
 def generate_scheda_impianto_pdf(scheda: dict, patient: dict) -> bytes:
