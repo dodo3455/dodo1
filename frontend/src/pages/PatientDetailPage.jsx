@@ -374,10 +374,22 @@ export default function PatientDetailPage() {
                 <ChevronDown className="w-4 h-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleDownloadPDF} data-testid="download-pdf-btn">
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => handleDownloadPDF("all")} data-testid="download-pdf-all-btn">
                 <FileDown className="w-4 h-4 mr-2 text-red-500" />
-                Scarica PDF
+                Cartella Completa
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDownloadPDF("anagrafica")} data-testid="download-pdf-anagrafica-btn">
+                <User className="w-4 h-4 mr-2 text-blue-500" />
+                Solo Anagrafica e Anamnesi
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDownloadPDF("medicazione")} data-testid="download-pdf-medicazione-btn">
+                <FileText className="w-4 h-4 mr-2 text-green-500" />
+                Solo Medicazioni
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDownloadPDF("impianto")} data-testid="download-pdf-impianto-btn">
+                <FileSpreadsheet className="w-4 h-4 mr-2 text-purple-500" />
+                Solo Schede Impianto (Complete)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDownloadZIP} data-testid="download-zip-btn">
                 <FileArchive className="w-4 h-4 mr-2 text-amber-500" />
