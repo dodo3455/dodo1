@@ -238,8 +238,26 @@ export const SchedaMedicazioneMED = ({ patientId, ambulatorio, schede, onRefresh
     });
   };
 
+  // Generate unique photo code for medicazione
+  const generatePhotoCode = (schedaId, dataMedicazione) => {
+    const dateCode = dataMedicazione 
+      ? format(new Date(dataMedicazione), "ddMMyy") 
+      : format(new Date(), "ddMMyy");
+    const shortId = schedaId ? schedaId.substring(0, 6).toUpperCase() : Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `MED-${dateCode}-${shortId}`;
+  };
+
+  // Generate photo description with date and code
+  const generatePhotoDescription = (dataMedicazione, schedaId) => {
+    const dateFormatted = dataMedicazione 
+      ? format(new Date(dataMedicazione), "dd/MM/yy", { locale: it })
+      : format(new Date(), "dd/MM/yy", { locale: it });
+    const code = generatePhotoCode(schedaId, dataMedicazione);
+    return `Foto medicazione del ${dateFormatted} - Cod: ${code}`;
+  };
+
   // Handle photo upload for scheda
-  const handlePhotoUpload = async (e, schedaId = null) => {
+  const handlePhotoUpload = async (e, schedaId = null, dataMedicazione = null) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -251,14 +269,19 @@ export const SchedaMedicazioneMED = ({ patientId, ambulatorio, schede, onRefresh
 
     setUploadingPhoto(true);
     try {
+      // Get the data for description
+      const dataScheda = dataMedicazione || (schedaId && selectedScheda?.data_compilazione) || formData.data_compilazione;
+      const descrizioneAuto = generatePhotoDescription(dataScheda, schedaId);
+      
       const formDataUpload = new FormData();
       formDataUpload.append("file", file);
       formDataUpload.append("patient_id", patientId);
       formDataUpload.append("ambulatorio", ambulatorio);
       formDataUpload.append("tipo", "MED_SCHEDA");
-      formDataUpload.append("data", format(new Date(), "yyyy-MM-dd"));
+      formDataUpload.append("data", dataScheda || format(new Date(), "yyyy-MM-dd"));
       formDataUpload.append("scheda_med_id", schedaId || "pending");
       formDataUpload.append("file_type", "image");
+      formDataUpload.append("descrizione", descrizioneAuto);
 
       const response = await apiClient.post("/photos", formDataUpload, {
         headers: { "Content-Type": "multipart/form-data" },
