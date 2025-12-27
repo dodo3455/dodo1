@@ -141,17 +141,24 @@ export default function PatientDetailPage() {
   }, [patientId, navigate]);
 
   // Download patient folder as PDF
-  const handleDownloadPDF = async () => {
+  const handleDownloadPDF = async (section = "all") => {
     try {
-      toast.info("Generazione PDF in corso...");
+      const sectionNames = {
+        all: "completa",
+        anagrafica: "anagrafica",
+        medicazione: "medicazione",
+        impianto: "impianto"
+      };
+      toast.info(`Generazione PDF ${sectionNames[section]} in corso...`);
       const response = await apiClient.get(`/patients/${patientId}/download/pdf`, {
+        params: { section },
         responseType: 'blob'
       });
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `cartella_${patient?.cognome}_${patient?.nome}.pdf`;
+      link.download = `cartella_${sectionNames[section]}_${patient?.cognome}_${patient?.nome}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
