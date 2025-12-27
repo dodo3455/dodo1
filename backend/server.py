@@ -112,9 +112,23 @@ class PatientUpdate(BaseModel):
     suspend_notes: Optional[str] = None
     lesion_markers: Optional[List[Dict[str, Any]]] = None
 
+# Helper function to generate unique patient code
+def generate_patient_code(nome: str, cognome: str) -> str:
+    """Generate unique patient code like 'm234h' based on name"""
+    import random
+    import string
+    # Take first letter of cognome lowercase
+    prefix = cognome[0].lower() if cognome else 'x'
+    # Generate 3 random digits
+    digits = ''.join(random.choices(string.digits, k=3))
+    # Add 1 random letter
+    suffix = random.choice(string.ascii_lowercase)
+    return f"{prefix}{digits}{suffix}"
+
 class Patient(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    codice_paziente: str = ""  # Codice univoco paziente (es. m234h)
     nome: str
     cognome: str
     tipo: PatientType
@@ -132,6 +146,7 @@ class Patient(BaseModel):
     discharge_reason: Optional[str] = None
     discharge_notes: Optional[str] = None
     suspend_notes: Optional[str] = None
+    scheda_med_counter: int = 0  # Counter for MED schede
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
