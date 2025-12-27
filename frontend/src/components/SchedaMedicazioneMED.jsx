@@ -715,9 +715,6 @@ export const SchedaMedicazioneMED = ({ patientId, ambulatorio, schede, onRefresh
                     <CardTitle className="text-base">
                       Scheda del {format(new Date(scheda.data_compilazione), "d MMMM yyyy", { locale: it })}
                     </CardTitle>
-                    {scheda.codice && (
-                      <p className="text-xs font-mono text-blue-600 mt-0.5">Cod: {scheda.codice}</p>
-                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button
