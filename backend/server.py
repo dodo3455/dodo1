@@ -839,12 +839,16 @@ def generate_scheda_impianto_pdf(scheda: dict, patient: dict) -> bytes:
     italic_small = ParagraphStyle('ItalicSmall', fontSize=6, fontName='Helvetica-Oblique', textColor=colors.grey)
     
     def cb(checked):
-        """Checkbox helper - filled or empty"""
-        return "■" if checked else "□"
+        """Checkbox helper - filled or empty with clear visual difference"""
+        if checked:
+            return "<font color='#000000'><b>[X]</b></font>"  # Checked - bold X in brackets
+        else:
+            return "<font color='#666666'>[&nbsp;&nbsp;]</font>"  # Empty brackets
     
     def cb_list(arr, val):
         """Check if value is in list"""
-        return "■" if isinstance(arr, list) and val in arr else "□"
+        is_checked = isinstance(arr, list) and val in arr
+        return cb(is_checked)
     
     def get_val(key, default=""):
         """Get value from scheda, return empty string if None"""
