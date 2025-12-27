@@ -202,54 +202,102 @@ class SchedaMedicazioneMED(BaseModel):
     foto_ids: List[str] = []
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-# Scheda Impianto PICC
+# Scheda Impianto PICC - Nuova struttura completa
 class SchedaImpiantoPICCCreate(BaseModel):
     patient_id: str
     ambulatorio: Ambulatorio
-    data_impianto: str
-    tipo_catetere: str
-    sede: str
-    braccio: Optional[str] = None  # dx, sn
-    vena: Optional[str] = None  # basilica, cefalica, brachiale
+    # Header
+    presidio_ospedaliero: Optional[str] = None
+    codice: Optional[str] = None
+    unita_operativa: Optional[str] = None
+    data_presa_carico: Optional[str] = None
+    cartella_clinica: Optional[str] = None
+    # Sezione Catetere Già Presente
+    catetere_presente: bool = False
+    catetere_presente_tipo: Optional[str] = None
+    catetere_presente_struttura: Optional[str] = None
+    catetere_presente_data: Optional[str] = None
+    catetere_presente_ora: Optional[str] = None
+    catetere_presente_modalita: Optional[str] = None
+    catetere_presente_rx: Optional[bool] = None
+    catetere_da_sostituire: Optional[bool] = None
+    # Sezione Impianto Catetere
+    tipo_catetere: Optional[str] = None
+    posizionamento_cvc: Optional[str] = None
+    posizionamento_cvc_altro: Optional[str] = None
+    braccio: Optional[str] = None
+    vena: Optional[str] = None
     exit_site_cm: Optional[str] = None
-    ecoguidato: bool = False
-    igiene_mani: Optional[str] = None
-    precauzioni_barriera: bool = False
-    disinfettante: Optional[str] = None
-    sutureless_device: bool = False
-    medicazione_trasparente: bool = False
-    controllo_rx: bool = False
-    controllo_ecg: bool = False
-    modalita: Optional[str] = None  # emergenza, urgenza, elezione
-    motivazione: Optional[str] = None
+    valutazione_sito: Optional[bool] = None
+    ecoguidato: Optional[bool] = None
+    igiene_mani: Optional[bool] = None
+    precauzioni_barriera: Optional[bool] = None
+    disinfezione: List[str] = []
+    sutureless_device: Optional[bool] = None
+    medicazione_trasparente: Optional[bool] = None
+    medicazione_occlusiva: Optional[bool] = None
+    controllo_rx: Optional[bool] = None
+    controllo_ecg: Optional[bool] = None
+    modalita: Optional[str] = None
+    motivazione: List[str] = []
+    motivazione_altro: Optional[str] = None
+    data_posizionamento: Optional[str] = None
     operatore: Optional[str] = None
-    note: Optional[str] = None
     allegati: List[str] = []
+    # Legacy fields for backward compatibility
+    data_impianto: Optional[str] = None
+    sede: Optional[str] = None
+    disinfettante: Optional[str] = None
+    note: Optional[str] = None
 
 class SchedaImpiantoPICC(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
     ambulatorio: Ambulatorio
-    data_impianto: str
-    tipo_catetere: str
-    sede: str
+    # Header
+    presidio_ospedaliero: Optional[str] = None
+    codice: Optional[str] = None
+    unita_operativa: Optional[str] = None
+    data_presa_carico: Optional[str] = None
+    cartella_clinica: Optional[str] = None
+    # Sezione Catetere Già Presente
+    catetere_presente: bool = False
+    catetere_presente_tipo: Optional[str] = None
+    catetere_presente_struttura: Optional[str] = None
+    catetere_presente_data: Optional[str] = None
+    catetere_presente_ora: Optional[str] = None
+    catetere_presente_modalita: Optional[str] = None
+    catetere_presente_rx: Optional[bool] = None
+    catetere_da_sostituire: Optional[bool] = None
+    # Sezione Impianto Catetere
+    tipo_catetere: Optional[str] = None
+    posizionamento_cvc: Optional[str] = None
+    posizionamento_cvc_altro: Optional[str] = None
     braccio: Optional[str] = None
     vena: Optional[str] = None
     exit_site_cm: Optional[str] = None
-    ecoguidato: bool = False
-    igiene_mani: Optional[str] = None
-    precauzioni_barriera: bool = False
-    disinfettante: Optional[str] = None
-    sutureless_device: bool = False
-    medicazione_trasparente: bool = False
-    controllo_rx: bool = False
-    controllo_ecg: bool = False
+    valutazione_sito: Optional[bool] = None
+    ecoguidato: Optional[bool] = None
+    igiene_mani: Optional[bool] = None
+    precauzioni_barriera: Optional[bool] = None
+    disinfezione: List[str] = []
+    sutureless_device: Optional[bool] = None
+    medicazione_trasparente: Optional[bool] = None
+    medicazione_occlusiva: Optional[bool] = None
+    controllo_rx: Optional[bool] = None
+    controllo_ecg: Optional[bool] = None
     modalita: Optional[str] = None
-    motivazione: Optional[str] = None
+    motivazione: List[str] = []
+    motivazione_altro: Optional[str] = None
+    data_posizionamento: Optional[str] = None
     operatore: Optional[str] = None
-    note: Optional[str] = None
     allegati: List[str] = []
+    # Legacy fields
+    data_impianto: Optional[str] = None
+    sede: Optional[str] = None
+    disinfettante: Optional[str] = None
+    note: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 # Scheda Gestione Mensile PICC
